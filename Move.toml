@@ -1,0 +1,10 @@
+[package]
+name = "sui-nameservice"
+version = "0.0.1"
+
+[dependencies]
+#Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework", rev = "main" }
+Sui = { local = "../../.move/https___github_com_MystenLabs_sui_git_main/crates/sui-framework" }
+
+[addresses]
+nameservice =  "0x0"
