@@ -1,14 +1,16 @@
 sui client publish --gas-budget 10000
 
 
-owner:0x763fdfdd56e88ddad4347e7ece7e75c2f32ddca0
-shared: 0x37f9ef1ea24a494d7732d1ff5cacdc06326d4771
+owner:0xf34c7bff8ed5b7f47ba6bb12dca985308685db1c
+shared: 0x3f298aa7e0649b61806b55384b78e1f514d1d95c
+admin: 0x87cf2ed0f694468fc93467a6ca63363b7d96b76e
 
-export PACKAGE=0x521cb0011602046ff50a257f98d0137d21bbb5db
+export PACKAGE=0x5385ad67f92ea17f04b06e07955b23e29de92f74
 
-sui client call --gas-budget 1000 --package $PACKAGE --module "suiname_nft" --function "mint" --args 0x6d94a6cf9ecea64c03e17f6e44fcf7d2eb5f6b4e "cb" "link" 0x04db83f53422845d6cf3fa450d3281156a7f5380
+sui client call --gas-budget 1000 --package $PACKAGE --module "suiname_nft" --function "mint" --args 0x3f298aa7e0649b61806b55384b78e1f514d1d95c "" "link" 0x67843602633252c8ccb9f2c04ac7e2617cffe83e
 sui client call --gas-budget 1000 --package $PACKAGE --module "suiname_nft" --function "change_name_status" --args 0x98d108e2b7560f8ef9f29bda51019b253fcb4cce true
 sui client call --gas-budget 1000 --package $PACKAGE --module "suiname_nft" --function "transfer" --args 0xfe1b6dab53a40b97af02073e8b501797699cad3b 0xc592bb87f7f525855f918fe7a70cf79c958afee7
+sui client call --gas-budget 1000 --package $PACKAGE --module "suiname_nft" --function "collect_payments" --args 0x87cf2ed0f694468fc93467a6ca63363b7d96b76e 0x3f298aa7e0649b61806b55384b78e1f514d1d95c
 
 
 
@@ -19,8 +21,8 @@ sui client call --gas-budget 1000 --package $PACKAGE --module "suiname_nft" --fu
 
 export OBJECT=0xb0380788bbb1fd7630b7d387fdfe1fc71b159e8c
 
-sui client object --id 0xfe1b6dab53a40b97af02073e8b501797699cad3b
+sui client object --id 0xa9f8e88aa0945868e12a32e83699ca491d9ce5aa
 
-sui client objects --address 0x763fdfdd56e88ddad4347e7ece7e75c2f32ddca0
+sui client objects --address 0xf34c7bff8ed5b7f47ba6bb12dca985308685db1c
 
 sui client transfer-coin --to 0xc592bb87f7f525855f918fe7a70cf79c958afee7 --coin-object-id 0xa9a7d4a024c06de1e89fecc433610b96dd5e7e5d --gas-budget 1000
