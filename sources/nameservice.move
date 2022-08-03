@@ -1,6 +1,5 @@
 module nameservice::suiname_nft {
 
-    use sui::utf8;
     use sui::url::{Self, Url};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -10,24 +9,36 @@ module nameservice::suiname_nft {
     use sui::sui::SUI;
     use sui::object::{Self, Info, ID};
     use sui::balance::{Self, Balance};
+    use sui::utf8::{Self, String};
+    use sui::vec_map::VecMap;
+    use sui::vec_map;
 
-    const ENameIncorrect: u64 = 0;
-    const ENameTaken: u64 = 1;
-    const EOwnerIncorrect: u64 = 2;
-    const EAmountIncorrect: u64 = 3;
+    const ENameIncorrect: u64 = 100;
+    const ENameTaken: u64 = 101;
+    const EOwnerIncorrect: u64 = 102;
+    const EAmountIncorrect: u64 = 103;
+    const EWrongType: u64 = 104;
+    const EWrongInputGroup: u64 = 105;
+
+    const STORAGE_GROUPS: u8 = 32;
 
     struct AdminCap has key { info: Info }
 
-    struct Names has key {
+    struct GroupsInfo has key {
         info: Info,
-        names: vector<utf8::String>,
-        ids: vector<ID>,
+        data: VecMap<u8, ID>,
+    }
+
+    struct NamesGroup has key {
+        info: Info,
+        type: u8,
+        names: VecMap<String, ID>,
         balance: Balance<SUI>
     }
 
     struct SuiNameNFT has key, store {
         info: Info,
-        name: utf8::String,
+        name: String,
         url: Url,
         is_active: bool
     }
@@ -35,12 +46,9 @@ module nameservice::suiname_nft {
     struct NFTMinted has copy, drop {
         object_id: ID,
         creator: address,
-        name: utf8::String,
+        name: String,
     }
 
-    public fun get_names(names: &Names): vector<utf8::String> {
-        names.names
-    }
 
     public fun get_price(name: &vector<u8>): u64 {
         let price;
@@ -55,6 +63,17 @@ module nameservice::suiname_nft {
             price = 1000;
         };
         price
+    }
+
+    public fun get_type(name: &vector<u8>): u8 {
+        let hash_value: u8 = 0;
+        let name_len = vector::length(name);
+        let i = 0;
+        while (i < name_len) {
+            hash_value = (hash_value + *vector::borrow(name, i)) % STORAGE_GROUPS;
+            i = i + 1;
+        };
+        return hash_value + 1
     }
 
     public fun is_name_correct(name: &vector<u8>): bool {
@@ -73,11 +92,11 @@ module nameservice::suiname_nft {
             };
             i = i + 1;
         };
-        return true
+        true
     }
 
-    public fun is_name_available(names: &Names, name: &utf8::String): bool {
-        !vector::contains(&get_names(names), name)
+    public fun is_name_available(names: &VecMap<String, ID>, name: &String): bool {
+        !vec_map::contains(names, name)
     }
 
     fun init(ctx: &mut TxContext) {
@@ -85,11 +104,23 @@ module nameservice::suiname_nft {
             info: object::new(ctx)
         }, tx_context::sender(ctx));
 
-        transfer::share_object(Names {
+        let groups_data = vec_map::empty<u8, ID>();
+        let group_type = 1;
+        while (group_type <= STORAGE_GROUPS) {
+            let obj_info = object::new(ctx);
+            vec_map::insert(&mut groups_data, group_type, *object::info_id(&obj_info));
+            transfer::share_object(NamesGroup {
+                info: obj_info,
+                type: group_type,
+                names: vec_map::empty(),
+                balance: balance::zero()
+            });
+            group_type = group_type + 1;
+        };
+
+        transfer::share_object(GroupsInfo {
             info: object::new(ctx),
-            names: vector::empty(),
-            ids: vector::empty(),
-            balance: balance::zero()
+            data: groups_data,
         });
     }
 
@@ -98,7 +129,8 @@ module nameservice::suiname_nft {
     }
 
     public entry fun mint(
-        names: &mut Names,
+        names: &mut NamesGroup,
+        groups_info: &GroupsInfo,
         name: vector<u8>,
         url: vector<u8>,
         paid: &mut Coin<SUI>,
@@ -106,8 +138,12 @@ module nameservice::suiname_nft {
     ) {
         assert!(is_name_correct(&name), ENameIncorrect);
 
+        let type = get_type(&name);
+        assert!(type > 0, EWrongType);
+        assert!(vec_map::get(&groups_info.data, &type) == object::id(names), EWrongInputGroup);
+
         let strName = utf8::string_unsafe(name);
-        assert!(is_name_available(names, &strName), ENameTaken);
+        assert!(is_name_available(&names.names, &strName), ENameTaken);
 
         let price = get_price(&name);
         assert!(price <= coin::value(paid), EAmountIncorrect);
@@ -128,8 +164,7 @@ module nameservice::suiname_nft {
             name: nft.name,
         });
 
-        vector::push_back(&mut names.names, strName);
-        vector::push_back(&mut names.ids, *object::info_id(&nft.info));
+        vec_map::insert(&mut names.names, strName, *object::info_id(&nft.info));
 
         transfer::transfer(nft, sender);
     }
@@ -138,7 +173,7 @@ module nameservice::suiname_nft {
         suiname_nft.is_active = status
     }
 
-    public entry fun collect_payments(_: &AdminCap, names: &mut Names, ctx: &mut TxContext) {
+    public entry fun collect_payments(_: &AdminCap, names: &mut NamesGroup, ctx: &mut TxContext) {
         let amount = balance::value(&names.balance);
         let payments = coin::take(&mut names.balance, amount, ctx);
 
