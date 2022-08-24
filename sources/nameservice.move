@@ -7,11 +7,10 @@ module nameservice::suiname_nft {
     use std::vector;
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
-    use sui::object::{Self, Info, ID};
+    use sui::object::{Self, ID, UID};
     use sui::balance::{Self, Balance};
     use sui::utf8::{Self, String};
-    use sui::vec_map::VecMap;
-    use sui::vec_map;
+    use sui::vec_map::{Self, VecMap};
 
     const ENameIncorrect: u64 = 100;
     const ENameTaken: u64 = 101;
@@ -19,25 +18,26 @@ module nameservice::suiname_nft {
     const EAmountIncorrect: u64 = 103;
     const EWrongType: u64 = 104;
     const EWrongInputGroup: u64 = 105;
+    const EInvalidSender: u64 = 106;
 
-    const STORAGE_GROUPS: u8 = 32;
+    const STORAGE_GROUPS: u8 = 64;
 
-    struct AdminCap has key { info: Info }
+    struct AdminCap has key { id: UID }
 
     struct GroupsInfo has key {
-        info: Info,
+        id: UID,
         data: VecMap<u8, ID>,
     }
 
     struct NamesGroup has key {
-        info: Info,
+        id: UID,
         type: u8,
         names: VecMap<String, ID>,
         balance: Balance<SUI>
     }
 
     struct SuiNameNFT has key, store {
-        info: Info,
+        id: UID,
         name: String,
         url: Url,
         is_active: bool
@@ -101,16 +101,16 @@ module nameservice::suiname_nft {
 
     fun init(ctx: &mut TxContext) {
         transfer::transfer(AdminCap {
-            info: object::new(ctx)
+            id: object::new(ctx)
         }, tx_context::sender(ctx));
 
         let groups_data = vec_map::empty<u8, ID>();
         let group_type = 1;
         while (group_type <= STORAGE_GROUPS) {
             let obj_info = object::new(ctx);
-            vec_map::insert(&mut groups_data, group_type, *object::info_id(&obj_info));
+            vec_map::insert(&mut groups_data, group_type, object::uid_to_inner(&obj_info));
             transfer::share_object(NamesGroup {
-                info: obj_info,
+                id: obj_info,
                 type: group_type,
                 names: vec_map::empty(),
                 balance: balance::zero()
@@ -119,7 +119,7 @@ module nameservice::suiname_nft {
         };
 
         transfer::share_object(GroupsInfo {
-            info: object::new(ctx),
+            id: object::new(ctx),
             data: groups_data,
         });
     }
@@ -136,11 +136,13 @@ module nameservice::suiname_nft {
         paid: &mut Coin<SUI>,
         ctx: &mut TxContext
     ) {
+        let sender = tx_context::sender(ctx);
+        assert!(sender != @0x0000000000000000000000000000000000000000, EInvalidSender);
         assert!(is_name_correct(&name), ENameIncorrect);
 
         let type = get_type(&name);
         assert!(type > 0, EWrongType);
-        assert!(vec_map::get(&groups_info.data, &type) == object::id(names), EWrongInputGroup);
+        assert!(vec_map::get(&groups_info.data, &type) == object::uid_as_inner(&names.id), EWrongInputGroup);
 
         let strName = utf8::string_unsafe(name);
         assert!(is_name_available(&names.names, &strName), ENameTaken);
@@ -150,21 +152,21 @@ module nameservice::suiname_nft {
         let coin_balance = coin::balance_mut(paid);
         balance::join(&mut names.balance, balance::split(coin_balance, price));
 
-        let sender = tx_context::sender(ctx);
+
         let nft = SuiNameNFT {
-            info: object::new(ctx),
+            id: object::new(ctx),
             name: strName,
             url: url::new_unsafe_from_bytes(url),
             is_active: false
         };
 
         event::emit(NFTMinted {
-            object_id: *object::info_id(&nft.info),
+            object_id: object::uid_to_inner(&nft.id),
             creator: sender,
             name: nft.name,
         });
 
-        vec_map::insert(&mut names.names, strName, *object::info_id(&nft.info));
+        vec_map::insert(&mut names.names, strName, object::uid_to_inner(&nft.id));
 
         transfer::transfer(nft, sender);
     }
