@@ -9,7 +9,7 @@ module nameservice::suiname_nft {
     use sui::sui::SUI;
     use sui::object::{Self, ID, UID};
     use sui::balance::{Self, Balance};
-    use sui::utf8::{Self, String};
+    use std::string::{Self, String};
     use sui::vec_map::{Self, VecMap};
 
     const ENameIncorrect: u64 = 100;
@@ -144,7 +144,7 @@ module nameservice::suiname_nft {
         assert!(type > 0, EWrongType);
         assert!(vec_map::get(&groups_info.data, &type) == object::uid_as_inner(&names.id), EWrongInputGroup);
 
-        let strName = utf8::string_unsafe(name);
+        let strName = string::utf8(name);
         assert!(is_name_available(&names.names, &strName), ENameTaken);
 
         let price = get_price(&name);
