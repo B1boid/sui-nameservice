@@ -49,6 +49,11 @@ module nameservice::suiname_nft {
         name: String,
     }
 
+    struct GroupInfoCreated has copy, drop {
+        object_id: ID,
+        creator: address,
+    }
+
 
     public fun get_price(name: &vector<u8>): u64 {
         let price;
@@ -118,10 +123,16 @@ module nameservice::suiname_nft {
             group_type = group_type + 1;
         };
 
-        transfer::share_object(GroupsInfo {
+        let groups_info = GroupsInfo {
             id: object::new(ctx),
             data: groups_data,
+        };
+        event::emit(GroupInfoCreated {
+            object_id: object::uid_to_inner(&groups_info.id),
+            creator: tx_context::sender(ctx),
         });
+
+        transfer::share_object(groups_info);
     }
 
     public entry fun transfer(suiname_nft: SuiNameNFT, recipient: address) {
