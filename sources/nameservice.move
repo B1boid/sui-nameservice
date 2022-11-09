@@ -59,13 +59,13 @@ module nameservice::suiname_nft {
         let price;
         let name_length = vector::length(name);
         if (name_length == 1) {
-            price = 5000;
+            price = 5000000;
         } else if (name_length == 2) {
-            price = 3000;
+            price = 3000000;
         } else if (name_length == 3) {
-            price = 2000;
+            price = 2000000;
         } else {
-            price = 1000;
+            price = 1000000;
         };
         price
     }
